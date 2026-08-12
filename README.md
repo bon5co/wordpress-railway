@@ -11,8 +11,9 @@ What it changes, and why each change exists on Railway specifically:
   `WORDPRESS_ADMIN_PASSWORD` is empty, and re-applies the password on every boot,
   so a redeploy rotates it rather than locking the deployer out.
 - **Restores the real visitor address in PHP.** Railway's edge is what reaches the container, from a public address that rotates per request, so `REMOTE_ADDR` is a proxy hop and everything keyed on it (comment IPs, security plugins, rate limits) is recording the wrong client.
-  image trusts RFC1918 only, so PHP receives the edge address as `REMOTE_ADDR` and
-  everything keyed on the client — comment IPs, security plugins, any rate limit —
+  Measured live: two consecutive requests from one client arrived as
+  `remote_addr=152.233.33.163` and `remote_addr=152.233.33.161`, both with
+  `X-Forwarded-For: 106.73.62.0`.
 - **Throttles failed logins** (10 per 15 minutes per client address, configurable)
   through a must-use plugin. WordPress core ships no throttle at all.
 - **Blocks `xmlrpc.php`** at Apache and inside WordPress unless
