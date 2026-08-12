@@ -16,7 +16,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/**
+ * The FIRST address of X-Forwarded-For, not the whole header and not
+ * REMOTE_ADDR.
+ *
+ * Railway's edge sends "<client>, <edge>" and the edge hop rotates per request,
+ * so a key built from the whole header (or from the peer address, which is
+ * always the edge) changes every few requests and no counter ever reaches its
+ * limit. The first address is written by Railway's edge, which replaces any
+ * inbound X-Forwarded-For, so a client cannot forge it.
+ */
 function railway_login_client_ip() {
+	if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+		$first = trim( strtok( (string) $_SERVER['HTTP_X_FORWARDED_FOR'], ',' ) );
+		if ( filter_var( $first, FILTER_VALIDATE_IP ) ) {
+			return $first;
+		}
+	}
+
 	$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
 	return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : 'unknown';
 }

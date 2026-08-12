@@ -93,6 +93,16 @@ chown -R www-data:www-data /var/www/html/wp-content/mu-plugins
 
 wp_cli() { wp --allow-root --path=/var/www/html "$@"; }
 
+# Off by default. Set RAILWAY_IP_PROBE=1 to publish /railway-ip.php, which
+# prints REMOTE_ADDR and X-Forwarded-For -- the only way to see what the edge
+# actually hands the container on a given deploy.
+if [ "${RAILWAY_IP_PROBE:-0}" = "1" ]; then
+    printf '<?php header("Content-Type: text/plain"); echo "remote_addr=", $_SERVER["REMOTE_ADDR"], "\nxff=", $_SERVER["HTTP_X_FORWARDED_FOR"] ?? "", "\n";' \
+        > /var/www/html/railway-ip.php
+else
+    rm -f /var/www/html/railway-ip.php
+fi
+
 # ------------------------------------------------------------------ wait on db
 # Probed with mysqli, not `wp db check`: the WP-CLI command shells out to
 # mysqlcheck and the image ships no MySQL client, so it fails for a reason that
