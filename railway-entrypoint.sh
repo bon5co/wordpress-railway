@@ -33,6 +33,16 @@ sed -ri "s!<VirtualHost \*:[0-9]+>!<VirtualHost *:${PORT}>!" /etc/apache2/sites-
 grep -q '^ServerName' /etc/apache2/apache2.conf || echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 log "apache listening on ${PORT}"
 
+# Apache refuses to start with "More than one MPM loaded", and on Railway the
+# container came up with more than one enabled where the same image on a plain
+# Docker host had only mpm_prefork. Rather than trust the image's state, settle
+# it here: everything off, prefork on (the MPM the official image is built
+# against, and the only one safe with mod_php).
+log "mpm before: $(ls /etc/apache2/mods-enabled/ | grep -c mpm) module files"
+a2dismod -f mpm_event mpm_worker mpm_prefork >/dev/null 2>&1 || true
+a2enmod mpm_prefork >/dev/null 2>&1 || true
+log "mpm after: $(ls /etc/apache2/mods-enabled/ | grep mpm | tr '\n' ' ')"
+
 # ------------------------------------------------------------------ php sizing
 # The stock php.ini-production leaves memory_limit at 128M and uploads at 2M,
 # which is below what the media library and most page builders need. Size the
