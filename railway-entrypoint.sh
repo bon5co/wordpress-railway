@@ -88,6 +88,10 @@ log "running upstream setup"
 docker-entrypoint.sh apache2 -v >/dev/null
 
 install -d -m 0755 /var/www/html/wp-content/mu-plugins
+# Clear ours first: the mu-plugins live on the volume, so a file this image no
+# longer ships would otherwise survive an upgrade and be loaded alongside its
+# replacement (a renamed plugin took the site down with "Cannot redeclare").
+rm -f /var/www/html/wp-content/mu-plugins/railway-*.php
 cp -f /usr/src/railway-mu-plugins/*.php /var/www/html/wp-content/mu-plugins/
 chown -R www-data:www-data /var/www/html/wp-content/mu-plugins
 
