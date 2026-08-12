@@ -12,27 +12,11 @@ FROM wordpress:6.9.1-php8.3-apache
 ADD https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar /usr/local/bin/wp
 RUN chmod +x /usr/local/bin/wp
 
-# Recover the real client address.
-#
-# The stock image enables mod_remoteip with RemoteIPHeader X-Forwarded-For and
-# RemoteIPInternalProxy limited to RFC1918 + loopback
-# (/etc/apache2/conf-available/remoteip.conf). Railway's edge speaks to the
-# container from 100.64.0.0/10, which matches none of those, so Apache stops
-# walking the header at the edge hop and hands PHP the proxy's address as
-# REMOTE_ADDR. Measured on this image with the stock config, a request with
-# `X-Forwarded-For: 203.0.113.7, 100.64.5.5` produced REMOTE_ADDR 100.64.5.5.
-#
-# Everything in WordPress that is keyed on the client address then keys on
-# Railway's edge instead: comment author IPs, the address stored with every
-# failed-login record, and any security plugin's blocklist. Worse, that edge
-# hop rotates per request, so a plugin that blocks "the attacker" blocks a
-# shared address that the next request no longer comes from.
-#
-# Trusting 100.64.0.0/10 makes Apache continue to the previous hop, which
-# Railway's edge writes itself -- it REPLACES any inbound X-Forwarded-For, so
-# the first address cannot be spoofed by the client.
-COPY railway-remoteip.conf /etc/apache2/conf-available/railway-remoteip.conf
-RUN a2enconf railway-remoteip >/dev/null
+# The real client address is restored in PHP, not in Apache -- see
+# mu-plugins/railway-client-ip.php. mod_remoteip needs a list of proxy
+# addresses to trust, and Railway's edge reaches the container from a public
+# address that rotates per request (measured: 152.233.33.163 then .161 for two
+# consecutive requests from one client), so there is nothing stable to trust.
 
 # Blocks xmlrpc.php at the web server as well as inside WordPress. XML-RPC
 # accepts credential guesses in batches through system.multicall, so it is the

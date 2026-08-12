@@ -1,15 +1,24 @@
 <?php
 /**
- * Plugin Name: Railway login throttle
- * Description: Rate-limits failed logins per client address. WordPress core ships
- *              no throttle of any kind: 40 wrong passwords against a stock
- *              instance all returned HTTP 200, 20 of them in 1.455 seconds.
+ * Plugin Name: Railway client IP + login throttle
+ * Description: Restores the real visitor address and rate-limits failed logins
+ *              per client. WordPress core ships no throttle of any kind: 40
+ *              wrong passwords against a stock instance all returned HTTP 200,
+ *              20 of them in 1.455 seconds.
  * Author: bon5co
  *
- * The key is REMOTE_ADDR, which is only the real visitor because the image adds
- * Railway's edge range to mod_remoteip's trusted proxies. Without that fix this
- * would throttle the edge, i.e. every visitor at once and no attacker in
- * particular.
+ * Measured on a live Railway deploy, two consecutive requests from one client:
+ *
+ *     remote_addr=152.233.33.163   xff=106.73.62.0
+ *     remote_addr=152.233.33.161   xff=106.73.62.0
+ *
+ * REMOTE_ADDR is Railway's edge and it ROTATES per request; X-Forwarded-For is
+ * the visitor and it is stable. Every WordPress feature keyed on REMOTE_ADDR --
+ * the IP stored with each comment, every security plugin's blocklist, every
+ * rate limit -- is therefore recording a proxy hop that the next request no
+ * longer comes from. Apache's mod_remoteip cannot fix it either, because the
+ * edge address is a public one that changes, so there is no proxy range to
+ * trust; the header is the only stable source.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -36,6 +45,20 @@ function railway_login_client_ip() {
 
 	$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
 	return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : 'unknown';
+}
+
+/**
+ * Hand the real address to everything that reads REMOTE_ADDR -- comment
+ * records, security plugins, anything counting requests per visitor -- while
+ * keeping the edge hop available for debugging.
+ */
+if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
+	$railway_client_ip = railway_login_client_ip();
+	if ( 'unknown' !== $railway_client_ip ) {
+		$_SERVER['RAILWAY_EDGE_ADDR'] = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '';
+		$_SERVER['REMOTE_ADDR']       = $railway_client_ip;
+	}
+	unset( $railway_client_ip );
 }
 
 function railway_login_limits() {
