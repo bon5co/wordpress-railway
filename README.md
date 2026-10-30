@@ -1,5 +1,9 @@
 # wordpress-railway
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/wordpress-or-just-updated-cms-no-strange?referralCode=Z1xivh&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+**Deploy on Railway:** [WordPress template](https://railway.com/deploy/wordpress-or-just-updated-cms-no-strange?referralCode=Z1xivh&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
 Railway-tuned wrapper around the official `wordpress:6.9.1-php8.3-apache` image,
 published as `ghcr.io/bon5co/wordpress-railway`.
 
